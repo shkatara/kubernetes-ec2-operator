@@ -1,0 +1,149 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.2
+  name: ec2instances.compute.cloud.com
+spec:
+  group: compute.cloud.com
+  names:
+    kind: Ec2Instance
+    listKind: Ec2InstanceList
+    plural: ec2instances
+    singular: ec2instance
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: Ec2Instance is the Schema for the ec2instances API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              amiId:
+                type: string
+              associatePublicIP:
+                type: boolean
+              availabilityZone:
+                type: string
+              instanceType:
+                type: string
+              keyPair:
+                type: string
+              region:
+                type: string
+              securityGroups:
+                items:
+                  type: string
+                type: array
+              storage:
+                properties:
+                  additionalVolumes:
+                    items:
+                      properties:
+                        deviceName:
+                          type: string
+                        encrypted:
+                          type: boolean
+                        size:
+                          format: int32
+                          type: integer
+                        type:
+                          type: string
+                      required:
+                      - size
+                      type: object
+                    type: array
+                  rootVolume:
+                    properties:
+                      deviceName:
+                        type: string
+                      encrypted:
+                        type: boolean
+                      size:
+                        format: int32
+                        type: integer
+                      type:
+                        type: string
+                    required:
+                    - size
+                    type: object
+                type: object
+              subnet:
+                type: string
+              tags:
+                additionalProperties:
+                  type: string
+                type: object
+              userData:
+                type: string
+            required:
+            - amiId
+            - instanceType
+            - region
+            type: object
+          status:
+            properties:
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
+              instanceId:
+                type: string
+              launchTime:
+                format: date-time
+                type: string
+              privateDNS:
+                type: string
+              privateIP:
+                type: string
+              publicDNS:
+                type: string
+              publicIP:
+                type: string
+              state:
+                type: string
+              volumeIds:
+                items:
+                  type: string
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

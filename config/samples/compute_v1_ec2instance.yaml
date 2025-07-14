@@ -1,0 +1,9 @@
+apiVersion: compute.cloud.com/v1
+kind: Ec2Instance
+metadata:
+  labels:
+    app.kubernetes.io/name: ec2operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ec2instance-sample
+spec:
+  # TODO(user): Add fields here

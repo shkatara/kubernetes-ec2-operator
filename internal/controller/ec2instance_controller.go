@@ -28,10 +28,14 @@ import (
 	computev1 "github.com/shkatara/ec2Operator/api/v1"
 )
 
-// Ec2InstanceReconciler reconciles a Ec2Instance object
+// Ec2InstanceReconciler is a struct that implements the logic for reconciling Ec2Instance custom resources.
+// It embeds the Kubernetes client.Client interface, which provides methods for interacting with the Kubernetes API server,
+// and holds a pointer to a runtime.Scheme, which is used for type conversions between Go structs and Kubernetes objects.
+// This struct is used to reconcile the Ec2Instance custom resource.
+
 type Ec2InstanceReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
+	client.Client                 // Used to perform CRUD operations on Kubernetes resources.
+	Scheme        *runtime.Scheme // Used to map Go types to Kubernetes GroupVersionKinds and vice versa.
 }
 
 // +kubebuilder:rbac:groups=compute.cloud.com,resources=ec2instances,verbs=get;list;watch;create;update;patch;delete
@@ -51,9 +55,30 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
-	// Print that a new ec2 instance is created
 	fmt.Println("A new ec2 instance is created")
 
+	// handle when resource is deleted
+	if req.Name != "" {
+		// Create a new instance of the Ec2Instance struct to hold the data retrieved from the Kubernetes API.
+		// This struct will be populated with the current state of the Ec2Instance resource specified by the request.
+		ec2Instance := &computev1.Ec2Instance{}
+		// Retrieve the Ec2Instance resource from the Kubernetes API server using the provided request's NamespacedName.
+		err := r.Get(ctx, req.NamespacedName, ec2Instance)
+		fmt.Println(ec2Instance)
+
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		//print the name
+		fmt.Println(ec2Instance.Name, ec2Instance.Namespace, ec2Instance.Spec.InstanceType)
+	}
+
+	// The Reconcile function must return a ctrl.Result and an error.
+	// Returning ctrl.Result{} with nil error means the reconciliation was successful
+	// and no requeue is requested. If an error is returned, the controller will
+	// automatically requeue the request for another attempt.
+	// Sends Requeue ( bool ) and RequeueAfter ( time.Duration ).
 	return ctrl.Result{}, nil
 }
 

@@ -73,6 +73,20 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	//print the instance info
 	fmt.Println(ec2Instance.Name, ec2Instance.Namespace, ec2Instance.Spec.InstanceType)
 
+	//append the status to the ec2 instance
+	ec2Instance.Status.InstanceID = "1234567890"
+	ec2Instance.Status.State = "Running"
+	ec2Instance.Status.PublicIP = "123.456.789.012"
+	ec2Instance.Status.PrivateIP = "123.456.789.012"
+	ec2Instance.Status.PublicDNS = "ec2-123-456-789-012.compute-1.amazonaws.com"
+	ec2Instance.Status.PrivateDNS = "ip-123-456-789-012.compute-1.internal"
+
+	//update the ec2 instance
+	err = r.Status().Update(ctx, ec2Instance)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// The Reconcile function must return a ctrl.Result and an error.
 	// Returning ctrl.Result{} with nil error means the reconciliation was successful
 	// and no requeue is requested. If an error is returned, the controller will

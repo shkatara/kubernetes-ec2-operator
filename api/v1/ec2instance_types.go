@@ -75,6 +75,13 @@ type Condition struct {
 type Ec2InstanceStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	InstanceID string       `json:"instanceId,omitempty"`
+	State      string       `json:"state,omitempty"`
+	PublicIP   string       `json:"publicIP,omitempty"`
+	PrivateIP  string       `json:"privateIP,omitempty"`
+	PublicDNS  string       `json:"publicDNS,omitempty"`
+	PrivateDNS string       `json:"privateDNS,omitempty"`
+	LaunchTime *metav1.Time `json:"launchTime,omitempty"`
 }
 
 // +kubebuilder:object:root=true

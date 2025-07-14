@@ -58,21 +58,20 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	fmt.Println("A new ec2 instance is created")
 
 	// handle when resource is deleted
-	if req.Name != "" {
-		// Create a new instance of the Ec2Instance struct to hold the data retrieved from the Kubernetes API.
-		// This struct will be populated with the current state of the Ec2Instance resource specified by the request.
-		ec2Instance := &computev1.Ec2Instance{}
-		// Retrieve the Ec2Instance resource from the Kubernetes API server using the provided request's NamespacedName.
-		err := r.Get(ctx, req.NamespacedName, ec2Instance)
-		fmt.Println(ec2Instance)
+	// Create a new instance of the Ec2Instance struct to hold the data retrieved from the Kubernetes API.
+	// This struct will be populated with the current state of the Ec2Instance resource specified by the request.
+	ec2Instance := &computev1.Ec2Instance{}
+	// Retrieve the Ec2Instance resource from the Kubernetes API server using the provided request's NamespacedName.
+	err := r.Get(ctx, req.NamespacedName, ec2Instance)
+	// print the ec2 instance
+	fmt.Println(ec2Instance)
 
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		//print the name
-		fmt.Println(ec2Instance.Name, ec2Instance.Namespace, ec2Instance.Spec.InstanceType)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
+
+	//print the instance info
+	fmt.Println(ec2Instance.Name, ec2Instance.Namespace, ec2Instance.Spec.InstanceType)
 
 	// The Reconcile function must return a ctrl.Result and an error.
 	// Returning ctrl.Result{} with nil error means the reconciliation was successful

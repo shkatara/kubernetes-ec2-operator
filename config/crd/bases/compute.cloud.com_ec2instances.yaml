@@ -14,10 +14,26 @@ spec:
     singular: ec2instance
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: The EC2 instance type
+      jsonPath: .spec.instanceType
+      name: InstanceType
+      type: string
+    - description: The current state of the EC2 instance
+      jsonPath: .status.state
+      name: State
+      type: string
+    - description: The public IP of the EC2 instance
+      jsonPath: .status.publicIP
+      name: PublicIP
+      type: string
+    - description: The AWS instance ID
+      jsonPath: .status.instanceId
+      name: InstanceID
+      type: string
+    name: v1
     schema:
       openAPIV3Schema:
-        description: Ec2Instance is the Schema for the ec2instances API.
         properties:
           apiVersion:
             description: |-
@@ -101,28 +117,12 @@ spec:
             - region
             type: object
           status:
+            description: Ec2InstanceStatus defines the observed state of Ec2Instance.
             properties:
-              conditions:
-                items:
-                  properties:
-                    lastTransitionTime:
-                      format: date-time
-                      type: string
-                    message:
-                      type: string
-                    reason:
-                      type: string
-                    status:
-                      type: string
-                    type:
-                      type: string
-                  required:
-                  - lastTransitionTime
-                  - status
-                  - type
-                  type: object
-                type: array
               instanceId:
+                description: |-
+                  INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+                  Important: Run "make" to regenerate code after modifying this file
                 type: string
               launchTime:
                 format: date-time
@@ -137,10 +137,6 @@ spec:
                 type: string
               state:
                 type: string
-              volumeIds:
-                items:
-                  type: string
-                type: array
             type: object
         type: object
     served: true

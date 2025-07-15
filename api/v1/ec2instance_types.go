@@ -25,7 +25,7 @@ import (
 
 // Ec2InstanceSpec defines the desired state of Ec2Instance.
 
-type EC2InstanceSpec struct {
+type Ec2InstanceSpec struct {
 	InstanceType      string            `json:"instanceType"`
 	AMIId             string            `json:"amiId"`
 	Region            string            `json:"region"`
@@ -51,18 +51,6 @@ type VolumeConfig struct {
 	Encrypted  bool   `json:"encrypted,omitempty"`
 }
 
-type EC2InstanceStatus struct {
-	InstanceID string       `json:"instanceId,omitempty"`
-	State      string       `json:"state,omitempty"`
-	PublicIP   string       `json:"publicIP,omitempty"`
-	PrivateIP  string       `json:"privateIP,omitempty"`
-	PublicDNS  string       `json:"publicDNS,omitempty"`
-	PrivateDNS string       `json:"privateDNS,omitempty"`
-	LaunchTime *metav1.Time `json:"launchTime,omitempty"`
-	Conditions []Condition  `json:"conditions,omitempty"`
-	VolumeIDs  []string     `json:"volumeIds,omitempty"`
-}
-
 type Condition struct {
 	Type               string      `json:"type"`
 	Status             string      `json:"status"`
@@ -86,14 +74,18 @@ type Ec2InstanceStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-
+// +kubebuilder:printcolumn:name="InstanceType",type="string",JSONPath=".spec.instanceType",description="The EC2 instance type"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The current state of the EC2 instance"
+// +kubebuilder:printcolumn:name="PublicIP",type="string",JSONPath=".status.publicIP",description="The public IP of the EC2 instance"
+// +kubebuilder:printcolumn:name="InstanceID",type="string",JSONPath=".status.instanceId",description="The AWS instance ID"
 // Ec2Instance is the Schema for the ec2instances API.
+
 type Ec2Instance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   EC2InstanceSpec   `json:"spec,omitempty"`
-	Status EC2InstanceStatus `json:"status,omitempty"`
+	Spec   Ec2InstanceSpec   `json:"spec,omitempty"`
+	Status Ec2InstanceStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -103,6 +95,15 @@ type Ec2InstanceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Ec2Instance `json:"items"`
+}
+
+type CreatedInstanceInfo struct {
+	InstanceID string `json:"instanceId"`
+	PublicIP   string `json:"publicIP"`
+	PrivateIP  string `json:"privateIP"`
+	PublicDNS  string `json:"publicDNS"`
+	PrivateDNS string `json:"privateDNS"`
+	State      string `json:"state"`
 }
 
 func init() {

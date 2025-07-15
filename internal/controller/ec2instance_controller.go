@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -26,6 +27,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	computev1 "github.com/shkatara/ec2Operator/api/v1"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	config "github.com/aws/aws-sdk-go-v2/config"
+	ec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 // Ec2InstanceReconciler is a struct that implements the logic for reconciling Ec2Instance custom resources.
@@ -44,48 +50,93 @@ type Ec2InstanceReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Ec2Instance object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
+//
+// After updating the status of the resource (e.g., with r.Status().Update), the Kubernetes API server
+// will emit an update event for the resource. This event will be picked up by the controller-runtime
+// and will cause the Reconcile function to be called again for the same resource. This is why, after
+// updating the status, the reconciler is called again: it is a result of the Kubernetes watch mechanism
+// and ensures that the controller can observe and react to any changes, including those it made itself.
+// This pattern is common in Kubernetes controllers to ensure eventual consistency and to handle
+// situations where the status update may not have been fully applied or observed yet.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	l := log.FromContext(ctx)
 
 	// TODO(user): your logic here
-	fmt.Println("A new ec2 instance is created")
+	l.Info("A new ec2 instance is created")
+	ec2Instance := &computev1.Ec2Instance{}
 
 	// handle when resource is deleted
 	// Create a new instance of the Ec2Instance struct to hold the data retrieved from the Kubernetes API.
 	// This struct will be populated with the current state of the Ec2Instance resource specified by the request.
-	ec2Instance := &computev1.Ec2Instance{}
 	// Retrieve the Ec2Instance resource from the Kubernetes API server using the provided request's NamespacedName.
 	err := r.Get(ctx, req.NamespacedName, ec2Instance)
 	// print the ec2 instance
-	fmt.Println(ec2Instance)
+	//l.Info(ec2Instance)
 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	//print the instance info
-	fmt.Println(ec2Instance.Name, ec2Instance.Namespace, ec2Instance.Spec.InstanceType)
+	//l.Info(ec2Instance.Name, ec2Instance.Namespace, ec2Instance.Spec.InstanceType)
 
-	//append the status to the ec2 instance
-	ec2Instance.Status.InstanceID = "1234567890"
-	ec2Instance.Status.State = "Running"
-	ec2Instance.Status.PublicIP = "123.456.789.012"
-	ec2Instance.Status.PrivateIP = "123.456.789.012"
-	ec2Instance.Status.PublicDNS = "ec2-123-456-789-012.compute-1.amazonaws.com"
-	ec2Instance.Status.PrivateDNS = "ip-123-456-789-012.compute-1.internal"
-
-	//update the ec2 instance
-	err = r.Status().Update(ctx, ec2Instance)
+	createdInstanceInfo, err := createEc2Instance(ec2Instance)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	ec2Instance.Status.InstanceID = createdInstanceInfo.InstanceID
+	ec2Instance.Status.State = createdInstanceInfo.State
+	ec2Instance.Status.PublicIP = createdInstanceInfo.PublicIP
+	ec2Instance.Status.PrivateIP = createdInstanceInfo.PrivateIP
+	ec2Instance.Status.PublicDNS = createdInstanceInfo.PublicDNS
+	ec2Instance.Status.PrivateDNS = createdInstanceInfo.PrivateDNS
+
+	originalStatus := ec2Instance.Status.DeepCopy()
+
+	// Print the original status
+	//l.Info("Original status", "instanceID", originalStatus.InstanceID, "state", originalStatus.State, "publicIP", originalStatus.PublicIP, "privateIP", originalStatus.PrivateIP, "publicDNS", originalStatus.PublicDNS, "privateDNS", originalStatus.PrivateDNS)
+
+	// check if the instance is already created
+	if originalStatus.InstanceID != "" {
+		l.Info("Instance is already created")
+		return ctrl.Result{
+			Requeue:      false,
+			RequeueAfter: 0,
+		}, nil
+	}
+
+	// Only update the status if it has changed, and avoid triggering an infinite reconcile loop.
+	// Use a deep copy to compare the old and new status.
+
+	err = r.Status().Update(ctx, ec2Instance)
+	if err != nil {
+		return ctrl.Result{
+			Requeue:      false,
+			RequeueAfter: 0,
+		}, err
+	}
+
+	// After updating status, do not requeue unless necessary.
+
+	//l.Info("Result metadata:", result.ResultMetadata)
+
+	// //append the status to the ec2 instance
+	// ec2Instance.Status.InstanceID = "1234567890"
+	// ec2Instance.Status.State = "Running"
+	// ec2Instance.Status.PublicIP = "123.456.789.012"
+	// ec2Instance.Status.PrivateIP = "123.456.789.012"
+	// ec2Instance.Status.PublicDNS = "ec2-123-456-789-012.compute-1.amazonaws.com"
+	// ec2Instance.Status.PrivateDNS = "ip-123-456-789-012.compute-1.internal"
+
+	//update the ec2 instance
+	// err = r.Status().Update(ctx, ec2Instance)
+	// if err != nil {
+	// 	return ctrl.Result{}, err
+	// }
 
 	// The Reconcile function must return a ctrl.Result and an error.
 	// Returning ctrl.Result{} with nil error means the reconciliation was successful
@@ -101,4 +152,90 @@ func (r *Ec2InstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&computev1.Ec2Instance{}).
 		Named("ec2instance").
 		Complete(r)
+}
+
+func createEc2Instance(ec2Instance *computev1.Ec2Instance) (createdInstanceInfo *computev1.CreatedInstanceInfo, err error) {
+
+	// create the client for ec2 instance
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(ec2Instance.Spec.Region))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AWS config: %w", err)
+	}
+	ec2Client := ec2.NewFromConfig(cfg)
+
+	// create the input for the run instances
+	runInput := &ec2.RunInstancesInput{
+		ImageId:      aws.String(ec2Instance.Spec.AMIId),
+		InstanceType: ec2types.InstanceType(ec2Instance.Spec.InstanceType),
+		KeyName:      aws.String(ec2Instance.Spec.KeyPair),
+		SubnetId:     aws.String(ec2Instance.Spec.Subnet),
+		MinCount:     aws.Int32(1),
+		MaxCount:     aws.Int32(1),
+		//SecurityGroupIds: []string{ec2Instance.Spec.SecurityGroups[0]},
+	}
+
+	// run the instances
+	result, err := ec2Client.RunInstances(context.TODO(), runInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create EC2 instance: %w", err)
+	}
+
+	// You get "invalid memory address or nil pointer dereference" here if any of the following are true:
+	// - result.Instances is nil or has length 0
+	// - Any of the pointer fields (e.g., PublicIpAddress, PrivateIpAddress, etc.) are nil
+
+	// To avoid this, always check for nil and length before dereferencing:
+
+	// Wait for a bit to allow instance fields to be populated
+
+	if len(result.Instances) == 0 {
+		fmt.Println("No instances returned in RunInstancesOutput")
+		return nil, nil
+	}
+
+	inst := result.Instances[0]
+
+	fmt.Printf("Private IP of the instance: %v\n", derefString(inst.PrivateIpAddress))
+	fmt.Printf("Private DNS of the instance: %v\n", derefString(inst.PrivateDnsName))
+	fmt.Printf("Instance ID of the instance: %v\n", derefString(inst.InstanceId))
+	fmt.Println("Instance Type of the instance: ", inst.InstanceType)
+	fmt.Printf("Image ID of the instance: %v\n", derefString(inst.ImageId))
+	fmt.Printf("Key Name of the instance: %v\n", derefString(inst.KeyName))
+
+	// sleep for 5 seconds to let the instance be created
+	time.Sleep(5 * time.Second)
+
+	// Read the instance for public ip and dns
+	describeInput := &ec2.DescribeInstancesInput{
+		InstanceIds: []string{*inst.InstanceId},
+	}
+
+	describeResult, err := ec2Client.DescribeInstances(context.TODO(), describeInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe EC2 instance: %w", err)
+	}
+
+	fmt.Println("Describe result", "public ip", *describeResult.Reservations[0].Instances[0].PublicDnsName)
+
+	createdInstanceInfo = &computev1.CreatedInstanceInfo{
+		InstanceID: *inst.InstanceId,
+		State:      string(inst.State.Name),
+		PublicIP:   *describeResult.Reservations[0].Instances[0].PublicIpAddress,
+		PrivateIP:  *describeResult.Reservations[0].Instances[0].PrivateIpAddress,
+		PublicDNS:  *describeResult.Reservations[0].Instances[0].PublicDnsName,
+		PrivateDNS: *describeResult.Reservations[0].Instances[0].PrivateDnsName,
+	}
+
+	// Optionally, update ec2Instance.Status.InstanceID = *result.Instances[0].InstanceId
+
+	// For now, just return nil to indicate success.
+	return createdInstanceInfo, nil
+}
+
+// derefString is a helper function to safely dereference *string
+func derefString(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return "<nil>"
 }

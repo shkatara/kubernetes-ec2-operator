@@ -5,13 +5,13 @@ metadata:
   namespace: default
 spec:
   instanceType: t3.medium
-  amiId: ami-0c55b159cbfafe1f0  # Amazon Linux 2
-  region: us-west-2
-  availabilityZone: us-west-2a
-  keyPair: my-keypair
+  amiId: ami-09042b2f6d07d164a  # Amazon Linux 2
+  region: eu-central-1
+  availabilityZone: eu-central-1a
+  keyPair: vmskp
   securityGroups:
-    - web-security-group
-  subnet: subnet-12345678
+    - sg-09f5c9270d3d1d5f6
+  subnet: subnet-0d417570cce95f348
   userData: |
     #!/bin/bash
     yum update -y

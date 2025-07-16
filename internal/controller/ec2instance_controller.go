@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,23 +66,45 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	l := log.FromContext(ctx)
 
 	// TODO(user): your logic here
-	l.Info("A new ec2 instance is created")
-	ec2Instance := &computev1.Ec2Instance{}
+	l.Info("Ec2Instance Reconciler recieved a request")
 
-	// handle when resource is deleted
 	// Create a new instance of the Ec2Instance struct to hold the data retrieved from the Kubernetes API.
 	// This struct will be populated with the current state of the Ec2Instance resource specified by the request.
 	// Retrieve the Ec2Instance resource from the Kubernetes API server using the provided request's NamespacedName.
-	err := r.Get(ctx, req.NamespacedName, ec2Instance)
-	// print the ec2 instance
-	//l.Info(ec2Instance)
-
-	if err != nil {
-		return ctrl.Result{}, err
+	ec2Instance := &computev1.Ec2Instance{}
+	if err := r.Get(ctx, req.NamespacedName, ec2Instance); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	//print the instance info
-	//l.Info(ec2Instance.Name, ec2Instance.Namespace, ec2Instance.Spec.InstanceType)
+	fmt.Println("Instance ID is now", ec2Instance.Status.InstanceID)
+
+	// Check if we already have an instance ID in status
+	if ec2Instance.Status.InstanceID != "" {
+		// Instance already exists, verify it's still running
+		instanceExist, instanceState, _ := checkEC2InstanceExists(ctx, ec2Instance.Status.InstanceID, ec2Instance)
+		// if err != nil {
+		// 	// Instance might be terminated, clear status and recreate
+		// 	ec2Instance.Status.InstanceID = ""
+		// 	ec2Instance.Status.State = ""
+		// 	ec2Instance.Status.PublicIP = ""
+		// 	ec2Instance.Status.PrivateIP = ""
+		// 	ec2Instance.Status.PublicDNS = ""
+		// 	ec2Instance.Status.PrivateDNS = ""
+		// 	return ctrl.Result{Requeue: true}, r.Status().Update(ctx, ec2Instance)
+		// }
+		if instanceExist {
+			// check status of the instance is running
+			if instanceState.State.Name != ec2types.InstanceStateNameRunning {
+				// update the status of the instance
+				ec2Instance.Status.State = string(instanceState.State.Name)
+				return ctrl.Result{}, r.Status().Update(ctx, ec2Instance)
+			}
+			// Instance exists, we're done
+			return ctrl.Result{}, nil
+		}
+		// Instance does not exist, we're done
+		return ctrl.Result{}, nil
+	}
 
 	createdInstanceInfo, err := createEc2Instance(ec2Instance)
 	if err != nil {
@@ -95,55 +118,14 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	ec2Instance.Status.PublicDNS = createdInstanceInfo.PublicDNS
 	ec2Instance.Status.PrivateDNS = createdInstanceInfo.PrivateDNS
 
-	originalStatus := ec2Instance.Status.DeepCopy()
-
-	// Print the original status
-	//l.Info("Original status", "instanceID", originalStatus.InstanceID, "state", originalStatus.State, "publicIP", originalStatus.PublicIP, "privateIP", originalStatus.PrivateIP, "publicDNS", originalStatus.PublicDNS, "privateDNS", originalStatus.PrivateDNS)
-
-	// check if the instance is already created
-	if originalStatus.InstanceID != "" {
-		l.Info("Instance is already created")
-		return ctrl.Result{
-			Requeue:      false,
-			RequeueAfter: 0,
-		}, nil
-	}
-
-	// Only update the status if it has changed, and avoid triggering an infinite reconcile loop.
-	// Use a deep copy to compare the old and new status.
-
-	err = r.Status().Update(ctx, ec2Instance)
-	if err != nil {
-		return ctrl.Result{
-			Requeue:      false,
-			RequeueAfter: 0,
-		}, err
-	}
-
-	// After updating status, do not requeue unless necessary.
-
-	//l.Info("Result metadata:", result.ResultMetadata)
-
-	// //append the status to the ec2 instance
-	// ec2Instance.Status.InstanceID = "1234567890"
-	// ec2Instance.Status.State = "Running"
-	// ec2Instance.Status.PublicIP = "123.456.789.012"
-	// ec2Instance.Status.PrivateIP = "123.456.789.012"
-	// ec2Instance.Status.PublicDNS = "ec2-123-456-789-012.compute-1.amazonaws.com"
-	// ec2Instance.Status.PrivateDNS = "ip-123-456-789-012.compute-1.internal"
-
-	//update the ec2 instance
-	// err = r.Status().Update(ctx, ec2Instance)
-	// if err != nil {
-	// 	return ctrl.Result{}, err
-	// }
-
 	// The Reconcile function must return a ctrl.Result and an error.
 	// Returning ctrl.Result{} with nil error means the reconciliation was successful
 	// and no requeue is requested. If an error is returned, the controller will
 	// automatically requeue the request for another attempt.
 	// Sends Requeue ( bool ) and RequeueAfter ( time.Duration ).
-	return ctrl.Result{}, nil
+	//return ctrl.Result{}, nil
+	return ctrl.Result{}, r.Status().Update(ctx, ec2Instance)
+
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -217,6 +199,8 @@ func createEc2Instance(ec2Instance *computev1.Ec2Instance) (createdInstanceInfo 
 
 	fmt.Println("Describe result", "public ip", *describeResult.Reservations[0].Instances[0].PublicDnsName)
 
+	// block until the instance is running
+	// blockUntilInstanceRunning(ctx, ec2Instance.Status.InstanceID, ec2Instance)
 	createdInstanceInfo = &computev1.CreatedInstanceInfo{
 		InstanceID: *inst.InstanceId,
 		State:      string(inst.State.Name),
@@ -238,4 +222,42 @@ func derefString(s *string) string {
 		return *s
 	}
 	return "<nil>"
+}
+
+func checkEC2InstanceExists(ctx context.Context, instanceID string, ec2Instance *computev1.Ec2Instance) (bool, *ec2types.Instance, error) {
+	if instanceID == "" {
+		return false, nil, nil
+	}
+	// create the client for ec2 instance
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(ec2Instance.Spec.Region))
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to load AWS config: %w", err)
+	}
+	ec2Client := ec2.NewFromConfig(cfg)
+
+	input := &ec2.DescribeInstancesInput{
+		InstanceIds: []string{instanceID},
+	}
+
+	result, err := ec2Client.DescribeInstances(ctx, input)
+	if err != nil {
+		// Check if it's a "not found" error
+		if strings.Contains(err.Error(), "InvalidInstanceID.NotFound") {
+			return false, nil, nil
+		}
+		return false, nil, err
+	}
+
+	// Check if we got any instances back
+	for _, reservation := range result.Reservations {
+		for _, instance := range reservation.Instances {
+			// Check if instance is not terminated
+			if instance.State.Name != ec2types.InstanceStateNameTerminated &&
+				instance.State.Name != ec2types.InstanceStateNameShuttingDown {
+				return true, &instance, nil
+			}
+		}
+	}
+
+	return false, nil, nil
 }

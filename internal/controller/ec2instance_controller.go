@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -26,8 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	computev1 "github.com/shkatara/ec2Operator/api/v1"
-
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 // Ec2InstanceReconciler is a struct that implements the logic for reconciling Ec2Instance custom resources.
@@ -71,12 +68,11 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	fmt.Println("Instance ID is now", ec2Instance.Status.InstanceID)
-
 	// Check if we already have an instance ID in status
 	if ec2Instance.Status.InstanceID != "" {
+		l.Info("Instance already exists", "instanceID", ec2Instance.Status.InstanceID)
 		// Instance already exists, verify it's still running
-		instanceExist, instanceState, _ := checkEC2InstanceExists(ctx, ec2Instance.Status.InstanceID, ec2Instance)
+		instanceExist, _, _ := checkEC2InstanceExists(ctx, ec2Instance.Status.InstanceID, ec2Instance)
 		// if err != nil {
 		// 	// Instance might be terminated, clear status and recreate
 		// 	ec2Instance.Status.InstanceID = ""
@@ -89,17 +85,18 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// }
 		if instanceExist {
 			// check status of the instance is running
-			if instanceState.State.Name != ec2types.InstanceStateNameRunning {
-				// update the status of the instance
-				ec2Instance.Status.State = string(instanceState.State.Name)
-				return ctrl.Result{}, r.Status().Update(ctx, ec2Instance)
-			}
+			// if instanceState.State.Name != ec2types.InstanceStateNameRunning {
+			// 	// update the status of the instance
+			// 	ec2Instance.Status.State = string(instanceState.State.Name)
+			// 	return ctrl.Result{}, r.Status().Update(ctx, ec2Instance)
+			// }
 			// Instance exists, we're done
 			return ctrl.Result{}, nil
 		}
 		// Instance does not exist, we're done
 		return ctrl.Result{}, nil
 	}
+	l.Info("Creating new instance")
 
 	createdInstanceInfo, err := createEc2Instance(ec2Instance)
 	if err != nil {

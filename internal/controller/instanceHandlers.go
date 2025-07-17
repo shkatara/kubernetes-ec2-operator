@@ -102,9 +102,7 @@ func derefString(s *string) string {
 }
 
 func checkEC2InstanceExists(ctx context.Context, instanceID string, ec2Instance *computev1.Ec2Instance) (bool, *ec2types.Instance, error) {
-	if instanceID == "" {
-		return false, nil, nil
-	}
+
 	// create the client for ec2 instance
 	ec2Client := awsClient(ec2Instance.Spec.Region)
 

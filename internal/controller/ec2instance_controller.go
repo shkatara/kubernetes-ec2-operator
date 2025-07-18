@@ -18,11 +18,12 @@ package controller
 
 import (
 	"context"
+	"errors"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	computev1 "github.com/shkatara/ec2Operator/api/v1"
@@ -66,15 +67,39 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	ec2Instance := &computev1.Ec2Instance{}
 	// Retrieve the Ec2Instance resource from the Kubernetes API server using the provided request's NamespacedName.
 	if err := r.Get(ctx, req.NamespacedName, ec2Instance); err != nil {
-		if errors.IsNotFound(err) {
-			// Object was deleted
-			l.Info("Got a delete request for the instance. Will delete the instance from AWS")
-			// Any cleanup logic here (though you can't access the object anymore)
-			return ctrl.Result{}, nil
-		}
-		// Error reading the object
-		return ctrl.Result{}, err
+		l.Error(err, "Failed to get Ec2Instance resource")
+		return ctrl.Result{Requeue: false}, client.IgnoreNotFound(err)
 	}
+
+	//check if deletionTimestamp is not zero
+	if !ec2Instance.DeletionTimestamp.IsZero() {
+		l.Info("Has deletionTimestamp, Instance is being deleted")
+		_, err := deleteEc2Instance(ctx, ec2Instance)
+		if err != nil {
+			l.Error(err, "Failed to delete EC2 instance")
+			return ctrl.Result{Requeue: false}, err
+		}
+
+		l.Info("EC2 instance deleted", "instanceID", ec2Instance.Status.InstanceID)
+
+		// Remove the finalizer
+		controllerutil.RemoveFinalizer(ec2Instance, "ec2instance.compute.cloud.com")
+		if err := r.Update(ctx, ec2Instance); err != nil {
+			l.Error(err, "Failed to remove finalizer")
+			return ctrl.Result{Requeue: false}, err
+		}
+		return ctrl.Result{
+			Requeue: false,
+		}, client.IgnoreNotFound(errors.New("instance deleted"))
+	}
+
+	// if errors.IsNotFound(err) {
+	// 	// Object was deleted
+	// 	fmt.Println("Ran kubectl delete ec2instance")
+	// 	l.Info("Got a delete request for the instance. Will delete the instance from AWS")
+	// 	// Any cleanup logic here (though you can't access the object anymore)
+	// 	return ctrl.Result{}, nil
+	// }
 
 	// Check if we already have an instance ID in status
 	if ec2Instance.Status.InstanceID != "" {

@@ -104,6 +104,14 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// Instance does not exist, we're done
 		return ctrl.Result{}, nil
 	}
+
+	l.Info("Adding finalizers to instance")
+	ec2Instance.Finalizers = append(ec2Instance.Finalizers, "ec2instance.compute.cloud.com")
+	if err := r.Update(ctx, ec2Instance); err != nil { // r.Update() does not trigger the Reconcile function again. just updates the instance object with the finalizer
+		return ctrl.Result{}, err
+	}
+
+	// Create a new instance
 	l.Info("Creating new instance")
 
 	createdInstanceInfo, err := createEc2Instance(ec2Instance)

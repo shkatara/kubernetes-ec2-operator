@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,7 +66,14 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Retrieve the Ec2Instance resource from the Kubernetes API server using the provided request's NamespacedName.
 	ec2Instance := &computev1.Ec2Instance{}
 	if err := r.Get(ctx, req.NamespacedName, ec2Instance); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		if errors.IsNotFound(err) {
+			// Object was deleted
+			l.Info("Got a delete request for the instance. Will delete the instance from AWS")
+			// Any cleanup logic here (though you can't access the object anymore)
+			return ctrl.Result{}, nil
+		}
+		// Error reading the object
+		return ctrl.Result{}, err
 	}
 
 	// Check if we already have an instance ID in status

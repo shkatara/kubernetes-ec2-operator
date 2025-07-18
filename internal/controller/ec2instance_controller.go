@@ -59,12 +59,12 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	l := log.FromContext(ctx)
 
 	// TODO(user): your logic here
-	l.Info("Ec2Instance Reconciler recieved a request")
+	l.Info("=== RECONCILE LOOP STARTED ===", "namespace", req.Namespace, "name", req.Name)
 
 	// Create a new instance of the Ec2Instance struct to hold the data retrieved from the Kubernetes API.
 	// This struct will be populated with the current state of the Ec2Instance resource specified by the request.
-	// Retrieve the Ec2Instance resource from the Kubernetes API server using the provided request's NamespacedName.
 	ec2Instance := &computev1.Ec2Instance{}
+	// Retrieve the Ec2Instance resource from the Kubernetes API server using the provided request's NamespacedName.
 	if err := r.Get(ctx, req.NamespacedName, ec2Instance); err != nil {
 		if errors.IsNotFound(err) {
 			// Object was deleted
@@ -104,20 +104,30 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// Instance does not exist, we're done
 		return ctrl.Result{}, nil
 	}
+	l.Info("Creating new instance")
 
-	l.Info("Adding finalizers to instance")
+	l.Info("=== ABOUT TO ADD FINALIZER ===")
 	ec2Instance.Finalizers = append(ec2Instance.Finalizers, "ec2instance.compute.cloud.com")
-	if err := r.Update(ctx, ec2Instance); err != nil { // r.Update() does not trigger the Reconcile function again. just updates the instance object with the finalizer
-		return ctrl.Result{}, err
+	if err := r.Update(ctx, ec2Instance); err != nil { // r.Update() WILL trigger the Reconcile function again via Kubernetes watch mechanism
+		l.Error(err, "Failed to add finalizer")
+		return ctrl.Result{
+			Requeue: true,
+		}, err
 	}
+	l.Info("=== FINALIZER ADDED - This update will trigger a NEW reconcile loop, but current reconcile continues ===")
 
 	// Create a new instance
-	l.Info("Creating new instance")
+	l.Info("=== CONTINUING WITH EC2 INSTANCE CREATION IN CURRENT RECONCILE ===")
 
 	createdInstanceInfo, err := createEc2Instance(ec2Instance)
 	if err != nil {
+		l.Error(err, "Failed to create EC2 instance")
 		return ctrl.Result{}, err
 	}
+
+	l.Info("=== ABOUT TO UPDATE STATUS - This will trigger reconcile loop again ===",
+		"instanceID", createdInstanceInfo.InstanceID,
+		"state", createdInstanceInfo.State)
 
 	ec2Instance.Status.InstanceID = createdInstanceInfo.InstanceID
 	ec2Instance.Status.State = createdInstanceInfo.State
@@ -132,8 +142,14 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// automatically requeue the request for another attempt.
 	// Sends Requeue ( bool ) and RequeueAfter ( time.Duration ).
 	//return ctrl.Result{}, nil
-	return ctrl.Result{}, r.Status().Update(ctx, ec2Instance)
+	err = r.Status().Update(ctx, ec2Instance)
+	if err != nil {
+		l.Error(err, "Failed to update status")
+		return ctrl.Result{}, err
+	}
+	l.Info("=== STATUS UPDATED - Reconcile loop will be triggered again ===")
 
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

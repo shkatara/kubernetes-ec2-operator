@@ -9,9 +9,16 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	computev1 "github.com/shkatara/ec2Operator/api/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func createEc2Instance(ec2Instance *computev1.Ec2Instance) (createdInstanceInfo *computev1.CreatedInstanceInfo, err error) {
+	l := log.Log.WithName("createEc2Instance")
+
+	l.Info("=== STARTING EC2 INSTANCE CREATION ===",
+		"ami", ec2Instance.Spec.AMIId,
+		"instanceType", ec2Instance.Spec.InstanceType,
+		"region", ec2Instance.Spec.Region)
 
 	// create the client for ec2 instance
 	ec2Client := awsClient(ec2Instance.Spec.Region)
@@ -27,33 +34,41 @@ func createEc2Instance(ec2Instance *computev1.Ec2Instance) (createdInstanceInfo 
 		//SecurityGroupIds: []string{ec2Instance.Spec.SecurityGroups[0]},
 	}
 
+	l.Info("=== CALLING AWS RunInstances API ===")
 	// run the instances
 	result, err := ec2Client.RunInstances(context.TODO(), runInput)
 	if err != nil {
+		l.Error(err, "Failed to create EC2 instance")
 		return nil, fmt.Errorf("failed to create EC2 instance: %w", err)
 	}
 
 	if len(result.Instances) == 0 {
+		l.Error(nil, "No instances returned in RunInstancesOutput")
 		fmt.Println("No instances returned in RunInstancesOutput")
 		return nil, nil
 	}
+
 	// Till here, the instance is created and we have
 	// Instance ID, private dns and IP, instance type and image id.
 	inst := result.Instances[0]
+	l.Info("=== EC2 INSTANCE CREATED SUCCESSFULLY ===", "instanceID", *inst.InstanceId)
 
 	// Now we need to wait for the instance to be running and then get the public ip and dns
+	l.Info("=== WAITING 10 SECONDS FOR INSTANCE TO INITIALIZE ===")
 	time.Sleep(10 * time.Second)
 
 	// After creating the instance, we waited and now we describe to
 	// 1. Get the public IP and dns as it takes some time for it
 	// 2. Getting the state of the instance.
 	// We do this so we can send the instance's state to the status of the custom resource. for user to see with kubectl get ec2instances
+	l.Info("=== CALLING AWS DescribeInstances API TO GET INSTANCE DETAILS ===")
 	describeInput := &ec2.DescribeInstancesInput{
 		InstanceIds: []string{*inst.InstanceId},
 	}
 
 	describeResult, err := ec2Client.DescribeInstances(context.TODO(), describeInput)
 	if err != nil {
+		l.Error(err, "Failed to describe EC2 instance")
 		return nil, fmt.Errorf("failed to describe EC2 instance: %w", err)
 	}
 
@@ -85,6 +100,11 @@ func createEc2Instance(ec2Instance *computev1.Ec2Instance) (createdInstanceInfo 
 		PublicDNS:  *describeResult.Reservations[0].Instances[0].PublicDnsName,
 		PrivateDNS: *describeResult.Reservations[0].Instances[0].PrivateDnsName,
 	}
+
+	l.Info("=== EC2 INSTANCE CREATION COMPLETED ===",
+		"instanceID", createdInstanceInfo.InstanceID,
+		"state", createdInstanceInfo.State,
+		"publicIP", createdInstanceInfo.PublicIP)
 
 	// Optionally, update ec2Instance.Status.InstanceID = *result.Instances[0].InstanceId
 

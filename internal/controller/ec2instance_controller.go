@@ -18,8 +18,8 @@ package controller
 
 import (
 	"context"
-	"errors"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -67,8 +67,11 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	ec2Instance := &computev1.Ec2Instance{}
 	// Retrieve the Ec2Instance resource from the Kubernetes API server using the provided request's NamespacedName.
 	if err := r.Get(ctx, req.NamespacedName, ec2Instance); err != nil {
-		l.Error(err, "Failed to get Ec2Instance resource")
-		return ctrl.Result{Requeue: false}, client.IgnoreNotFound(err)
+		if errors.IsNotFound(err) {
+			l.Info("Instance Deleted. No need to reconcile")
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
 	}
 
 	//check if deletionTimestamp is not zero
@@ -80,17 +83,14 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{Requeue: false}, err
 		}
 
-		l.Info("EC2 instance deleted", "instanceID", ec2Instance.Status.InstanceID)
-
 		// Remove the finalizer
 		controllerutil.RemoveFinalizer(ec2Instance, "ec2instance.compute.cloud.com")
 		if err := r.Update(ctx, ec2Instance); err != nil {
 			l.Error(err, "Failed to remove finalizer")
-			return ctrl.Result{Requeue: false}, err
+			return ctrl.Result{}, err
 		}
-		return ctrl.Result{
-			Requeue: false,
-		}, client.IgnoreNotFound(errors.New("instance deleted"))
+		// at this point, the instance state is terminated and the finalizer is removed
+		return ctrl.Result{}, nil
 	}
 
 	// if errors.IsNotFound(err) {

@@ -23,11 +23,9 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name: ""
 
-
 service:
   type: ClusterIP
   port: 80
-
 
 resources:
   limits:
@@ -37,10 +35,22 @@ resources:
     cpu: 100m
     memory: 128Mi
 
-
 ingress:
   enabled: false
 
-
 autoscaling:
   enabled: false
+
+# Pod Security Context
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container Security Context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - "ALL"
+

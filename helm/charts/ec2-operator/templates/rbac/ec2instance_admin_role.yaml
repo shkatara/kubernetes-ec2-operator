@@ -24,4 +24,4 @@ rules:
   resources:
   - ec2instances/status
   verbs:
-  - get
+  - '*'

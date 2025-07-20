@@ -1,0 +1,145 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.2
+  name: ec2instances.compute.cloud.com
+spec:
+  group: compute.cloud.com
+  names:
+    kind: Ec2Instance
+    listKind: Ec2InstanceList
+    plural: ec2instances
+    singular: ec2instance
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The EC2 instance type
+      jsonPath: .spec.instanceType
+      name: InstanceType
+      type: string
+    - description: The current state of the EC2 instance
+      jsonPath: .status.state
+      name: State
+      type: string
+    - description: The public IP of the EC2 instance
+      jsonPath: .status.publicIP
+      name: PublicIP
+      type: string
+    - description: The AWS instance ID
+      jsonPath: .status.instanceId
+      name: InstanceID
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              amiId:
+                type: string
+              associatePublicIP:
+                type: boolean
+              availabilityZone:
+                type: string
+              instanceType:
+                type: string
+              keyPair:
+                type: string
+              region:
+                type: string
+              securityGroups:
+                items:
+                  type: string
+                type: array
+              storage:
+                properties:
+                  additionalVolumes:
+                    items:
+                      properties:
+                        deviceName:
+                          type: string
+                        encrypted:
+                          type: boolean
+                        size:
+                          format: int32
+                          type: integer
+                        type:
+                          type: string
+                      required:
+                      - size
+                      type: object
+                    type: array
+                  rootVolume:
+                    properties:
+                      deviceName:
+                        type: string
+                      encrypted:
+                        type: boolean
+                      size:
+                        format: int32
+                        type: integer
+                      type:
+                        type: string
+                    required:
+                    - size
+                    type: object
+                type: object
+              subnet:
+                type: string
+              tags:
+                additionalProperties:
+                  type: string
+                type: object
+              userData:
+                type: string
+            required:
+            - amiId
+            - instanceType
+            - region
+            type: object
+          status:
+            description: Ec2InstanceStatus defines the observed state of Ec2Instance.
+            properties:
+              instanceId:
+                description: |-
+                  INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+                  Important: Run "make" to regenerate code after modifying this file
+                type: string
+              launchTime:
+                format: date-time
+                type: string
+              privateDNS:
+                type: string
+              privateIP:
+                type: string
+              publicDNS:
+                type: string
+              publicIP:
+                type: string
+              state:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

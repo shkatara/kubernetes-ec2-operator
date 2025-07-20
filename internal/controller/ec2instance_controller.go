@@ -178,6 +178,10 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 // SetupWithManager sets up the controller with the Manager.
+// SetupWithManager registers the Ec2InstanceReconciler with the controller manager.
+// It configures the controller to watch for changes to Ec2Instance resources.
+// The controller will be named "ec2instance" for logging and metrics purposes.
+// The Complete(r) call finalizes the setup, associating the reconciler logic with this controller.
 func (r *Ec2InstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&computev1.Ec2Instance{}).

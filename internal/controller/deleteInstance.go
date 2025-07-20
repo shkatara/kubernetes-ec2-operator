@@ -57,7 +57,8 @@ func deleteEc2Instance(ctx context.Context, ec2Instance *computev1.Ec2Instance) 
 	// fmt.Println("Instance post describe is", result.Reservations[0].Instances[0].State.Name)
 
 	// for loop to check if the instance is deleted
-	for i := 0; i < 10; i++ {
+	i := 0
+	for {
 		fmt.Println("Probe number ", i, "for instance", ec2Instance.Status.InstanceID)
 		result, _ := ec2Client.DescribeInstances(ctx, input)
 		fmt.Println("Instance state on is", result.Reservations[0].Instances[0].State.Name)
@@ -68,7 +69,8 @@ func deleteEc2Instance(ctx context.Context, ec2Instance *computev1.Ec2Instance) 
 		fmt.Println("Instance is not deleted yet. Sleeping for 10 seconds")
 		time.Sleep(10 * time.Second)
 		fmt.Println("Probing Again")
+		i++
 	}
 
-	return false, nil
+	//return false, nil
 }

@@ -18,8 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
-	"os"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -60,14 +58,6 @@ type Ec2InstanceReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
-
-	// read env variable for namespace
-	accessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
-	secretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-
-	//print key and secret
-	fmt.Println("AWS_ACCESS_KEY_ID", accessKeyID)
-	fmt.Println("AWS_SECRET_ACCESS_KEY", secretAccessKey)
 
 	// TODO(user): your logic here
 	l.Info("=== RECONCILE LOOP STARTED ===", "namespace", req.Namespace, "name", req.Name)

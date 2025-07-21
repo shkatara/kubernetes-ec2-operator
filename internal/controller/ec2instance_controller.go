@@ -39,6 +39,10 @@ type Ec2InstanceReconciler struct {
 	Scheme        *runtime.Scheme // Used to map Go types to Kubernetes GroupVersionKinds and vice versa.
 }
 
+/* Following are "Markers": These comments are special markers that the controller-gen tool (part of the Kubebuilder framework) understands.
+Used for Code Generation: When you run make manifests in your project, controller-gen reads these markers and automatically generates the ClusterRole YAML manifest file.
+This file defines all the permissions your controller needs to interact with Kubernetes API objects.
+*/
 // +kubebuilder:rbac:groups=compute.cloud.com,resources=ec2instances,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=compute.cloud.com,resources=ec2instances/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=compute.cloud.com,resources=ec2instances/finalizers,verbs=update
@@ -69,8 +73,10 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err := r.Get(ctx, req.NamespacedName, ec2Instance); err != nil {
 		if errors.IsNotFound(err) {
 			l.Info("Instance Deleted. No need to reconcile")
+			// Kubernetes will not retry - done, wait for next event
 			return ctrl.Result{}, nil
 		}
+		// Kubernetes will retry with backoff
 		return ctrl.Result{}, err
 	}
 
@@ -80,14 +86,16 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		_, err := deleteEc2Instance(ctx, ec2Instance)
 		if err != nil {
 			l.Error(err, "Failed to delete EC2 instance")
-			return ctrl.Result{Requeue: false}, err
+			// Kubernetes will retry with backoff
+			return ctrl.Result{Requeue: true}, err
 		}
 
 		// Remove the finalizer
 		controllerutil.RemoveFinalizer(ec2Instance, "ec2instance.compute.cloud.com")
 		if err := r.Update(ctx, ec2Instance); err != nil {
 			l.Error(err, "Failed to remove finalizer")
-			return ctrl.Result{}, err
+			// Kubernetes will retry with backoff
+			return ctrl.Result{Requeue: true}, err
 		}
 		// at this point, the instance state is terminated and the finalizer is removed
 		return ctrl.Result{}, nil
@@ -124,9 +132,10 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			// 	return ctrl.Result{}, r.Status().Update(ctx, ec2Instance)
 			// }
 			// Instance exists, we're done
+			// Kubernetes will not retry - done, wait for next event
 			return ctrl.Result{}, nil
 		}
-		// Instance does not exist, we're done
+		// Kubernetes will not retry - done, wait for next event
 		return ctrl.Result{}, nil
 	}
 	l.Info("Creating new instance")
@@ -135,6 +144,7 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	ec2Instance.Finalizers = append(ec2Instance.Finalizers, "ec2instance.compute.cloud.com")
 	if err := r.Update(ctx, ec2Instance); err != nil { // r.Update() WILL trigger the Reconcile function again via Kubernetes watch mechanism
 		l.Error(err, "Failed to add finalizer")
+		// Kubernetes will retry with backoff
 		return ctrl.Result{
 			Requeue: true,
 		}, err
@@ -147,6 +157,7 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	createdInstanceInfo, err := createEc2Instance(ec2Instance)
 	if err != nil {
 		l.Error(err, "Failed to create EC2 instance")
+		// Kubernetes will retry with backoff
 		return ctrl.Result{}, err
 	}
 
@@ -170,10 +181,14 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	err = r.Status().Update(ctx, ec2Instance)
 	if err != nil {
 		l.Error(err, "Failed to update status")
+		// Kubernetes will retry with backoff
 		return ctrl.Result{}, err
 	}
 	l.Info("=== STATUS UPDATED - Reconcile loop will be triggered again ===")
 
+	//fmt.Println("Instance id at the end of the reconcile is", ec2Instance.Status.InstanceID)
+
+	// Kubernetes will not retry - done, wait for next event
 	return ctrl.Result{}, nil
 }
 

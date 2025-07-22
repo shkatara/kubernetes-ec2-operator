@@ -7,8 +7,8 @@ controllerManager:
       repository: docker.io/shkatara/ec2-kubernetes-operator
       tag: latest
     args:
-      - "--metrics-bind-address=:8443"
-      - "--health-probe-bind-address=:8081"
+#      - "--metrics-bind-address=:8443"
+#      - "--health-probe-bind-address=:8081"
     resources:
       limits:
         cpu: 500m

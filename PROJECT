@@ -5,6 +5,8 @@
 domain: cloud.com
 layout:
 - go.kubebuilder.io/v4
+plugins:
+  helm.kubebuilder.io/v1-alpha: {}
 projectName: ec2operator
 repo: github.com/shkatara/ec2Operator
 resources:

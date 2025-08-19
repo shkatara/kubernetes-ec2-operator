@@ -39,6 +39,14 @@ type Ec2InstanceSpec struct {
 	AssociatePublicIP bool              `json:"associatePublicIP,omitempty"`
 }
 
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="InstanceType",type="string",JSONPath=".spec.instanceType",description="The EC2 instance type"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The current state of the EC2 instance"
+// +kubebuilder:printcolumn:name="PublicIP",type="string",JSONPath=".status.publicIP",description="The public IP of the EC2 instance"
+// +kubebuilder:printcolumn:name="InstanceID",type="string",JSONPath=".status.instanceId",description="The AWS instance ID"
+// Ec2Instance is the Schema for the ec2instances API.
+
 type StorageConfig struct {
 	RootVolume        VolumeConfig   `json:"rootVolume,omitempty"`
 	AdditionalVolumes []VolumeConfig `json:"additionalVolumes,omitempty"`

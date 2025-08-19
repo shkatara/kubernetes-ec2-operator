@@ -113,7 +113,7 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if ec2Instance.Status.InstanceID != "" {
 		l.Info("Instance already exists", "instanceID", ec2Instance.Status.InstanceID)
 		// Instance already exists, verify it's still running
-		instanceExist, _, _ := checkEC2InstanceExists(ctx, ec2Instance.Status.InstanceID, ec2Instance)
+		instanceExist, instanceState, _ := checkEC2InstanceExists(ctx, ec2Instance.Status.InstanceID, ec2Instance)
 		// if err != nil {
 		// 	// Instance might be terminated, clear status and recreate
 		// 	ec2Instance.Status.InstanceID = ""
@@ -124,18 +124,20 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// 	ec2Instance.Status.PrivateDNS = ""
 		// 	return ctrl.Result{Requeue: true}, r.Status().Update(ctx, ec2Instance)
 		// }
-		if instanceExist {
-			// check status of the instance is running
-			// if instanceState.State.Name != ec2types.InstanceStateNameRunning {
-			// 	// update the status of the instance
-			// 	ec2Instance.Status.State = string(instanceState.State.Name)
-			// 	return ctrl.Result{}, r.Status().Update(ctx, ec2Instance)
-			// }
-			// Instance exists, we're done
-			// Kubernetes will not retry - done, wait for next event
+		if !instanceExist {
+			l.Info("Instance does not exist or is not running", "instanceID", ec2Instance.Status.InstanceID)
+			ec2Instance.Status.State = "Unknown"
+			ec2Instance.Status.PublicIP = ""
+			r.Status().Update(ctx, ec2Instance)
 			return ctrl.Result{}, nil
 		}
-		// Kubernetes will not retry - done, wait for next event
+		if instanceExist && ec2Instance.Status.State == "Unknown" {
+			l.Info("Found a running Instance", "instanceID", ec2Instance.Status.InstanceID)
+			ec2Instance.Status.State = string(instanceState.State.Name)
+			ec2Instance.Status.PublicIP = *instanceState.PublicIpAddress
+			r.Status().Update(ctx, ec2Instance)
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, nil
 	}
 	l.Info("Creating new instance")

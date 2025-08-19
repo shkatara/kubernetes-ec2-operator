@@ -54,8 +54,18 @@ func createEc2Instance(ec2Instance *computev1.Ec2Instance) (createdInstanceInfo 
 	l.Info("=== EC2 INSTANCE CREATED SUCCESSFULLY ===", "instanceID", *inst.InstanceId)
 
 	// Now we need to wait for the instance to be running and then get the public ip and dns
-	l.Info("=== WAITING 10 SECONDS FOR INSTANCE TO INITIALIZE ===")
-	time.Sleep(10 * time.Second)
+	l.Info("=== WAITING FOR INSTANCE TO BE RUNNING ===")
+
+	runWaiter := ec2.NewInstanceRunningWaiter(ec2Client)
+	maxWaitTime := 3 * time.Minute // Increased from 10 seconds - instances typically take 30-60 seconds
+
+	err = runWaiter.Wait(context.TODO(), &ec2.DescribeInstancesInput{
+		InstanceIds: []string{*inst.InstanceId},
+	}, maxWaitTime)
+	if err != nil {
+		l.Error(err, "Failed to wait for instance to be running")
+		return nil, fmt.Errorf("failed to wait for instance to be running: %w", err)
+	}
 
 	// After creating the instance, we waited and now we describe to
 	// 1. Get the public IP and dns as it takes some time for it
@@ -82,23 +92,26 @@ func createEc2Instance(ec2Instance *computev1.Ec2Instance) (createdInstanceInfo 
 
 	// Wait for a bit to allow instance fields to be populated
 
-	fmt.Printf("Private IP of the instance: %v\n", derefString(inst.PrivateIpAddress))
-	fmt.Printf("State of the instance: %v\n", describeResult.Reservations[0].Instances[0].State.Name)
-	fmt.Printf("Private DNS of the instance: %v\n", derefString(inst.PrivateDnsName))
-	fmt.Printf("Instance ID of the instance: %v\n", derefString(inst.InstanceId))
+	fmt.Printf("Private IP of the instance: %v", derefString(inst.PrivateIpAddress))
+	fmt.Printf("State of the instance: %v", describeResult.Reservations[0].Instances[0].State.Name)
+	fmt.Printf("Private DNS of the instance: %v", derefString(inst.PrivateDnsName))
+	fmt.Printf("Instance ID of the instance: %v", derefString(inst.InstanceId))
 	fmt.Println("Instance Type of the instance: ", inst.InstanceType)
-	fmt.Printf("Image ID of the instance: %v\n", derefString(inst.ImageId))
-	fmt.Printf("Key Name of the instance: %v\n", derefString(inst.KeyName))
+	fmt.Printf("Image ID of the instance: %v", derefString(inst.ImageId))
+	fmt.Printf("Key Name of the instance: %v", derefString(inst.KeyName))
 
 	// block until the instance is running
 	// blockUntilInstanceRunning(ctx, ec2Instance.Status.InstanceID, ec2Instance)
+
+	// Get the instance details safely (public IP/DNS might be nil for private subnets)
+	instance := describeResult.Reservations[0].Instances[0]
 	createdInstanceInfo = &computev1.CreatedInstanceInfo{
 		InstanceID: *inst.InstanceId,
-		State:      string(describeResult.Reservations[0].Instances[0].State.Name),
-		PublicIP:   *describeResult.Reservations[0].Instances[0].PublicIpAddress,
-		PrivateIP:  *describeResult.Reservations[0].Instances[0].PrivateIpAddress,
-		PublicDNS:  *describeResult.Reservations[0].Instances[0].PublicDnsName,
-		PrivateDNS: *describeResult.Reservations[0].Instances[0].PrivateDnsName,
+		State:      string(instance.State.Name),
+		PublicIP:   derefString(instance.PublicIpAddress),
+		PrivateIP:  derefString(instance.PrivateIpAddress),
+		PublicDNS:  derefString(instance.PublicDnsName),
+		PrivateDNS: derefString(instance.PrivateDnsName),
 	}
 
 	l.Info("=== EC2 INSTANCE CREATION COMPLETED ===",

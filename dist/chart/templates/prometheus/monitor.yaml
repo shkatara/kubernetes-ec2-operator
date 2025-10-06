@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   name: ec2operator-controller-manager-metrics-monitor
-  namespace: {{ .Values.controllerManager.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   endpoints:
     - path: /metrics
@@ -15,7 +15,7 @@ spec:
       bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
       tlsConfig:
         {{- if .Values.certmanager.enable }}
-        serverName: ec2operator-controller-manager-metrics-service.{{ .Values.controllerManager.namespace }}.svc
+        serverName: ec2operator-controller-manager-metrics-service.{{ .Release.Namespace }}.svc
         # Apply secure TLS configuration with cert-manager
         insecureSkipVerify: false
         ca:

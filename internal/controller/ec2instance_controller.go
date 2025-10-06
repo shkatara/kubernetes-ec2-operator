@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -111,33 +112,36 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Check if we already have an instance ID in status
 	if ec2Instance.Status.InstanceID != "" {
-		l.Info("Instance already exists", "instanceID", ec2Instance.Status.InstanceID)
-		// Instance already exists, verify it's still running
-		instanceExist, instanceState, _ := checkEC2InstanceExists(ctx, ec2Instance.Status.InstanceID, ec2Instance)
-		// if err != nil {
-		// 	// Instance might be terminated, clear status and recreate
-		// 	ec2Instance.Status.InstanceID = ""
-		// 	ec2Instance.Status.State = ""
+		l.Info("Requested object already exists in Kubernetes. Not creating a new instance.", "instanceID", ec2Instance.Status.InstanceID)
+		//============================================//
+		// Your TODO : Implement Your Drift Detection //
+		//============================================//
+		// // Instance already exists, verify it's still running
+		// instanceExist, instanceState, _ := checkEC2InstanceExists(ctx, ec2Instance.Status.InstanceID, ec2Instance)
+		// // if err != nil {
+		// // 	// Instance might be terminated, clear status and recreate
+		// // 	ec2Instance.Status.InstanceID = ""
+		// // 	ec2Instance.Status.State = ""
+		// // 	ec2Instance.Status.PublicIP = ""
+		// // 	ec2Instance.Status.PrivateIP = ""
+		// // 	ec2Instance.Status.PublicDNS = ""
+		// // 	ec2Instance.Status.PrivateDNS = ""
+		// // 	return ctrl.Result{Requeue: true}, r.Status().Update(ctx, ec2Instance)
+		// // }
+		// if !instanceExist {
+		// 	l.Info("Instance does not exist or is not running", "instanceID", ec2Instance.Status.InstanceID)
+		// 	ec2Instance.Status.State = "Unknown"
 		// 	ec2Instance.Status.PublicIP = ""
-		// 	ec2Instance.Status.PrivateIP = ""
-		// 	ec2Instance.Status.PublicDNS = ""
-		// 	ec2Instance.Status.PrivateDNS = ""
-		// 	return ctrl.Result{Requeue: true}, r.Status().Update(ctx, ec2Instance)
+		// 	r.Status().Update(ctx, ec2Instance)
+		// 	return ctrl.Result{}, nil
 		// }
-		if !instanceExist {
-			l.Info("Instance does not exist or is not running", "instanceID", ec2Instance.Status.InstanceID)
-			ec2Instance.Status.State = "Unknown"
-			ec2Instance.Status.PublicIP = ""
-			r.Status().Update(ctx, ec2Instance)
-			return ctrl.Result{}, nil
-		}
-		if instanceExist && ec2Instance.Status.State == "Unknown" {
-			l.Info("Found a running Instance", "instanceID", ec2Instance.Status.InstanceID)
-			ec2Instance.Status.State = string(instanceState.State.Name)
-			ec2Instance.Status.PublicIP = *instanceState.PublicIpAddress
-			r.Status().Update(ctx, ec2Instance)
-			return ctrl.Result{}, nil
-		}
+		// if instanceExist && ec2Instance.Status.State == "Unknown" {
+		// 	l.Info("Found a running Instance", "instanceID", ec2Instance.Status.InstanceID)
+		// 	ec2Instance.Status.State = string(instanceState.State.Name)
+		// 	ec2Instance.Status.PublicIP = *instanceState.PublicIpAddress
+		// 	r.Status().Update(ctx, ec2Instance)
+		// 	return ctrl.Result{}, nil
+		// }
 		return ctrl.Result{}, nil
 	}
 	l.Info("Creating new instance")
@@ -191,7 +195,7 @@ func (r *Ec2InstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	//fmt.Println("Instance id at the end of the reconcile is", ec2Instance.Status.InstanceID)
 
 	// Kubernetes will not retry - done, wait for next event
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

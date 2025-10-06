@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ec2operator-controller-manager
-  namespace: {{ .Values.controllerManager.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
     control-plane: controller-manager
@@ -34,17 +34,13 @@ spec:
           command:
             - /manager
           image: {{ .Values.controllerManager.container.image.repository }}:{{ .Values.controllerManager.container.image.tag }}
+          {{- if .Values.controllerManager.container.env }}
           env:
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: aws-config
-                  key: AWS_ACCESS_KEY_ID
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: aws-config
-                  key: AWS_SECRET_ACCESS_KEY
+            {{- range $key, $value := .Values.controllerManager.container.env }}
+            - name: {{ $key }}
+              value: {{ $value }}
+            {{- end }}
+          {{- end }}
           livenessProbe:
             {{- toYaml .Values.controllerManager.container.livenessProbe | nindent 12 }}
           readinessProbe:

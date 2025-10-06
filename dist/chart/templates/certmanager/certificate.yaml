@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   name: selfsigned-issuer
-  namespace: {{ .Values.controllerManager.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   selfSigned: {}
 {{- if .Values.webhook.enable }}
@@ -20,14 +20,14 @@ metadata:
     "helm.sh/resource-policy": keep
     {{- end }}
   name: serving-cert
-  namespace: {{ .Values.controllerManager.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 spec:
   dnsNames:
-    - ec2operator.{{ .Values.controllerManager.namespace }}.svc
-    - ec2operator.{{ .Values.controllerManager.namespace }}.svc.cluster.local
-    - ec2operator-webhook-service.{{ .Values.controllerManager.namespace }}.svc
+    - ec2operator.{{ .Release.Namespace }}.svc
+    - ec2operator.{{ .Release.Namespace }}.svc.cluster.local
+    - ec2operator-webhook-service.{{ .Release.Namespace }}.svc
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
@@ -46,12 +46,12 @@ metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   name: metrics-certs
-  namespace: {{ .Values.controllerManager.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   dnsNames:
-    - ec2operator.{{ .Values.controllerManager.namespace }}.svc
-    - ec2operator.{{ .Values.controllerManager.namespace }}.svc.cluster.local
-    - ec2operator-metrics-service.{{ .Values.controllerManager.namespace }}.svc
+    - ec2operator.{{ .Release.Namespace }}.svc
+    - ec2operator.{{ .Release.Namespace }}.svc.cluster.local
+    - ec2operator-metrics-service.{{ .Release.Namespace }}.svc
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer

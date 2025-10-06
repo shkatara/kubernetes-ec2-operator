@@ -5,7 +5,7 @@ kind: Role
 metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
-  namespace: {{ .Values.controllerManager.namespace }}
+  namespace: {{ .Release.Namespace }}
   name: ec2operator-leader-election-role
 rules:
 - apiGroups:

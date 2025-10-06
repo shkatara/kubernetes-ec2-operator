@@ -71,9 +71,12 @@ spec:
                   type: string
                 type: array
               storage:
+                description: StorageConfig defines the storage configuration for the
+                  EC2 instance.
                 properties:
                   additionalVolumes:
                     items:
+                      description: VolumeConfig defines the configuration for a volume.
                       properties:
                         deviceName:
                           type: string
@@ -89,6 +92,7 @@ spec:
                       type: object
                     type: array
                   rootVolume:
+                    description: VolumeConfig defines the configuration for a volume.
                     properties:
                       deviceName:
                         type: string
@@ -102,6 +106,8 @@ spec:
                     required:
                     - size
                     type: object
+                required:
+                - rootVolume
                 type: object
               subnet:
                 type: string

@@ -1,14 +1,16 @@
 # [MANAGER]: Manager Deployment Configurations
 controllerManager:
-  namespace: ec2-operator
   replicas: 1
   container:
+    env: 
+      AWS_ACCESS_KEY_ID: YOUR_ACCESS_KEY
+      AWS_SECRET_ACCESS_KEY: YOUR_SECRET_KEY
     image:
       repository: docker.io/shkatara/ec2-kubernetes-operator
       tag: latest
     args:
-#      - "--metrics-bind-address=:8443"
-#      - "--health-probe-bind-address=:8081"
+      - "--metrics-bind-address=:8080"
+      - "--health-probe-bind-address=:8081"
     resources:
       limits:
         cpu: 500m
@@ -16,18 +18,18 @@ controllerManager:
       requests:
         cpu: 10m
         memory: 64Mi
-    # livenessProbe:
-    #   initialDelaySeconds: 15
-    #   periodSeconds: 20
-    #   httpGet:
-    #     path: /healthz
-    #     port: 8081
-    # readinessProbe:
-    #   initialDelaySeconds: 5
-    #   periodSeconds: 10
-    #   httpGet:
-    #     path: /readyz
-    #     port: 8081
+    livenessProbe:
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      httpGet:
+        path: /healthz
+        port: 8081
+    readinessProbe:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      httpGet:
+        path: /readyz
+        port: 8081
     securityContext:
       allowPrivilegeEscalation: false
       capabilities:

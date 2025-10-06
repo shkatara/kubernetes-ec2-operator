@@ -57,7 +57,10 @@ func init() {
 // nolint:gocyclo
 func main() {
 	var probeAddr string
+	var metricsAddr string
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metrics endpoint binds to.")
+
 	opts := zap.Options{
 		Development: true,
 	}

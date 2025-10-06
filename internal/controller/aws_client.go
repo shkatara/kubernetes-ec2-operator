@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -16,7 +17,8 @@ func awsClient(region string) *ec2.Client {
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, "")))
 	if err != nil {
-		return nil
+		fmt.Println("Error loading AWS config:", err)
+		os.Exit(1)
 	}
 	return ec2.NewFromConfig(cfg)
 }

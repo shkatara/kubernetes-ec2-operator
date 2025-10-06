@@ -4,7 +4,7 @@ kind: RoleBinding
 metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
-  namespace: {{ .Values.controllerManager.namespace }}
+  namespace: {{ .Release.Namespace }}
   name: ec2operator-leader-election-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -13,5 +13,5 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.controllerManager.serviceAccountName }}
-  namespace: {{ .Values.controllerManager.namespace }}
+  namespace: {{ .Release.Namespace }}
 {{- end -}}

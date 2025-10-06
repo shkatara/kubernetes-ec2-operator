@@ -47,24 +47,12 @@ type Ec2InstanceSpec struct {
 // +kubebuilder:printcolumn:name="InstanceID",type="string",JSONPath=".status.instanceId",description="The AWS instance ID"
 // Ec2Instance is the Schema for the ec2instances API.
 
-type StorageConfig struct {
-	RootVolume        VolumeConfig   `json:"rootVolume,omitempty"`
-	AdditionalVolumes []VolumeConfig `json:"additionalVolumes,omitempty"`
-}
+type Ec2Instance struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-type VolumeConfig struct {
-	Size       int32  `json:"size"`
-	Type       string `json:"type,omitempty"`
-	DeviceName string `json:"deviceName,omitempty"`
-	Encrypted  bool   `json:"encrypted,omitempty"`
-}
-
-type Condition struct {
-	Type               string      `json:"type"`
-	Status             string      `json:"status"`
-	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
-	Reason             string      `json:"reason,omitempty"`
-	Message            string      `json:"message,omitempty"`
+	Spec   Ec2InstanceSpec   `json:"spec,omitempty"`
+	Status Ec2InstanceStatus `json:"status,omitempty"`
 }
 
 // Ec2InstanceStatus defines the observed state of Ec2Instance.
@@ -80,20 +68,26 @@ type Ec2InstanceStatus struct {
 	LaunchTime *metav1.Time `json:"launchTime,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="InstanceType",type="string",JSONPath=".spec.instanceType",description="The EC2 instance type"
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The current state of the EC2 instance"
-// +kubebuilder:printcolumn:name="PublicIP",type="string",JSONPath=".status.publicIP",description="The public IP of the EC2 instance"
-// +kubebuilder:printcolumn:name="InstanceID",type="string",JSONPath=".status.instanceId",description="The AWS instance ID"
-// Ec2Instance is the Schema for the ec2instances API.
+// StorageConfig defines the storage configuration for the EC2 instance.
+type StorageConfig struct {
+	RootVolume        VolumeConfig   `json:"rootVolume"`
+	AdditionalVolumes []VolumeConfig `json:"additionalVolumes,omitempty"`
+}
 
-type Ec2Instance struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+// VolumeConfig defines the configuration for a volume.
+type VolumeConfig struct {
+	Size       int32  `json:"size"`
+	Type       string `json:"type,omitempty"`
+	DeviceName string `json:"deviceName,omitempty"`
+	Encrypted  bool   `json:"encrypted,omitempty"`
+}
 
-	Spec   Ec2InstanceSpec   `json:"spec,omitempty"`
-	Status Ec2InstanceStatus `json:"status,omitempty"`
+type Condition struct {
+	Type               string      `json:"type"`
+	Status             string      `json:"status"`
+	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
+	Reason             string      `json:"reason,omitempty"`
+	Message            string      `json:"message,omitempty"`
 }
 
 // +kubebuilder:object:root=true
